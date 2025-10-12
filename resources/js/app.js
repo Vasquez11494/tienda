@@ -17,6 +17,8 @@ export function closeModal(id) {
   modal.classList.add('hidden');
   modal.setAttribute('aria-hidden', 'true');
   document.body.style.overflow = '';
+  
+  document.dispatchEvent(new CustomEvent('modalClosed', { detail: { modalId: id } }));
 }
 
 // Delegación global abrir/cerrar
@@ -38,8 +40,12 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     document.querySelectorAll('[id].fixed[aria-hidden="false"]').forEach((m) => {
+      const modalId = m.id; // Capturar el ID antes de ocultar
       m.classList.add('hidden');
       m.setAttribute('aria-hidden', 'true');
+      
+      // ✅ Disparar evento para cada modal cerrado
+      document.dispatchEvent(new CustomEvent('modalClosed', { detail: { modalId } }));
     });
     document.body.style.overflow = '';
   }

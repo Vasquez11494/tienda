@@ -210,3 +210,9 @@
         transform: scale(1.02);
     }
 }
+
+#productosGrid > div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}

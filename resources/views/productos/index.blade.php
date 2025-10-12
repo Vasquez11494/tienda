@@ -5,139 +5,156 @@
 @section('content')
 
 <style>
-    .debug-border {
-        border: 2px solid red !important;
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    #productosGrid>div {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 </style>
-8
+
 <div class="flex h-[calc(100vh-120px)] gap-4">
 
     <!-- SIDEBAR -->
-    <div class="w-72 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
-        <div class="px-5 py-5 bg-gradient-to-br from-emerald-600 via-emerald-600 to-emerald-700 flex-shrink-0">
-            <div class="flex items-center gap-3 mb-1">
-                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="w-64 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
+        <div class="px-4 py-4 bg-gradient-to-br from-emerald-600 via-emerald-600 to-emerald-700 flex-shrink-0">
+            <div class="flex items-center gap-2 mb-1">
+                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                     </svg>
                 </div>
-                <h3 class="text-white font-bold text-lg">Categorías</h3>
+                <h3 class="text-white font-bold text-base">Categorías</h3>
             </div>
             <p class="text-emerald-100 text-xs">Filtra por categoría</p>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-3 space-y-2">
-            <button type="button" data-categoria="" class="categoria-btn w-full text-left px-4 py-3.5 rounded-xl transition-all duration-200 bg-emerald-50 border-2 border-emerald-500 text-emerald-800 font-semibold shadow-sm hover:shadow-md">
+        <div class="flex-1 overflow-y-auto p-2 space-y-1.5">
+            <button type="button" data-categoria="" class="categoria-btn w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 bg-emerald-50 border-2 border-emerald-500 text-emerald-800 font-semibold shadow-sm">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                        <span class="text-lg">📦</span>
-                        <span class="text-sm">Todas</span>
+                        <span class="text-base">📦</span>
+                        <span class="text-xs">Todas</span>
                     </div>
-                    <span class="px-2.5 py-1 bg-emerald-600 text-white text-xs rounded-lg font-bold" id="total-productos">0</span>
+                    <span class="px-2 py-0.5 bg-emerald-600 text-white text-xs rounded-md font-bold" id="total-productos">0</span>
                 </div>
             </button>
 
             @foreach($tipos as $tipo)
-            <button type="button" data-categoria="{{ $tipo->tprod_id }}" class="categoria-btn w-full text-left px-4 py-3.5 rounded-xl transition-all duration-200 hover:bg-gray-50 border-2 border-transparent hover:border-emerald-300 hover:shadow-sm group">
+            <button type="button" data-categoria="{{ $tipo->tprod_id }}" class="categoria-btn w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-gray-50 border-2 border-transparent hover:border-emerald-300 group">
                 <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-700 font-medium group-hover:text-emerald-700">{{ $tipo->tprod_nombre }}</span>
-                    <span class="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs rounded-lg font-semibold group-hover:bg-emerald-100 group-hover:text-emerald-700">{{ $tipo->productos_count }}</span>
+                    <span class="text-xs text-gray-700 font-medium group-hover:text-emerald-700">{{ $tipo->tprod_nombre }}</span>
+                    <span class="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-md font-semibold group-hover:bg-emerald-100 group-hover:text-emerald-700">{{ $tipo->productos_count }}</span>
                 </div>
             </button>
             @endforeach
         </div>
 
-        <div class="px-4 py-4 bg-gradient-to-br from-gray-50 to-gray-100 border-t-2 space-y-2.5 flex-shrink-0">
+        <div class="px-3 py-3 bg-gradient-to-br from-gray-50 to-gray-100 border-t-2 space-y-2 flex-shrink-0">
             <div class="flex justify-between items-center text-xs">
                 <span class="text-gray-600 font-medium">Stock bajo:</span>
-                <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-md font-bold" id="stat-stock-bajo">0</span>
+                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md font-bold" id="stat-stock-bajo">0</span>
             </div>
             <div class="flex justify-between items-center text-xs">
                 <span class="text-gray-600 font-medium">Sin stock:</span>
-                <span class="px-2 py-1 bg-red-100 text-red-700 rounded-md font-bold" id="stat-sin-stock">0</span>
+                <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-md font-bold" id="stat-sin-stock">0</span>
             </div>
         </div>
     </div>
 
     <!-- CONTENIDO PRINCIPAL -->
-    <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+    <div class="flex-1 flex flex-col gap-3 overflow-hidden">
 
         <!-- TOOLBAR -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between flex-shrink-0">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
             <div class="flex items-center gap-2 text-sm">
-                <span class="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">Inventario</span>
+                <span class="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">Inventario</span>
                 <span class="text-gray-300">|</span>
-                <button id="btnFiltrarSinCodigo" class="px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100">Sin código de barras</button>
+                <button id="btnFiltrarSinCodigo" class="px-2.5 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-medium">Sin código</button>
             </div>
 
             <div class="flex items-center gap-2">
-                <button id="btnNuevoProducto" class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow font-semibold">+ Nuevo producto</button>
+                <button id="btnNuevoProducto" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow text-sm font-semibold">+ Nuevo</button>
             </div>
         </div>
 
-        <!-- ESCÁNER -->
-        <div class="bg-gradient-to-br from-blue-600 via-blue-600 to-blue-700 rounded-2xl shadow-xl p-6 flex-shrink-0 border-2 border-blue-500">
-            <div class="flex items-center gap-4">
-                <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg">
-                    <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- ESCÁNER - MÁS COMPACTO -->
+        <div class="bg-gradient-to-br from-blue-600 via-blue-600 to-blue-700 rounded-xl shadow-lg px-4 py-3 flex-shrink-0 border border-blue-500">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
                 </div>
 
                 <div class="flex-1">
-                    <h2 class="text-white font-bold text-xl mb-1 flex items-center gap-2">
-                        Escáner de Productos
-                        <span id="scannerStatus" class="text-sm font-semibold text-emerald-300">● Listo</span>
-                    </h2>
-                    <p class="text-blue-100 text-sm mb-3">Escanea para gestionar o crear producto</p>
+                    <div class="flex items-center gap-2 mb-1">
+                        <h2 class="text-white font-bold text-base">Escáner de Productos</h2>
+                        <span id="scannerStatus" class="text-xs font-semibold text-emerald-300">● Listo</span>
+                    </div>
 
                     <div class="relative">
-                        <div class="absolute left-4 top-1/2 -translate-y-1/2">
-                            <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="absolute left-3 top-1/2 -translate-y-1/2">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
-                        <input type="text" id="scannerInput" autocomplete="off" placeholder="Escanea o escribe el código aquí..." class="w-full pl-12 pr-5 py-4 rounded-xl border-0 text-base font-mono shadow-2xl focus:ring-4 focus:ring-blue-300 focus:outline-none">
+                        <input type="text" id="scannerInput" autocomplete="off" placeholder="Escanea o escribe el código..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border-0 text-sm font-mono shadow-xl focus:ring-2 focus:ring-blue-300 focus:outline-none">
                     </div>
                 </div>
             </div>
 
             <!-- feedback de nombre -->
-            <div id="scannerNombreWrap" class="hidden mt-4 bg-white/10 rounded-xl p-3">
-                <span class="text-blue-100 text-sm">Producto:</span>
-                <span id="scannerNombre" class="text-white font-bold"></span>
-                <div class="inline-flex gap-2 ml-3">
-                    <button id="scannerBtnImprimir" class="hidden px-2.5 py-1 rounded-md bg-white/20 text-white text-xs hover:bg-white/30">Imprimir</button>
-                    <button id="scannerBtnEditar" class="hidden px-2.5 py-1 rounded-md bg-white/20 text-white text-xs hover:bg-white/30">Editar</button>
+            <div id="scannerNombreWrap" class="hidden mt-2 bg-white/10 rounded-lg p-2">
+                <span class="text-blue-100 text-xs">Producto:</span>
+                <span id="scannerNombre" class="text-white font-bold text-sm"></span>
+                <div class="inline-flex gap-2 ml-2">
+                    <button id="scannerBtnImprimir" class="hidden px-2 py-0.5 rounded-md bg-white/20 text-white text-xs hover:bg-white/30">Imprimir</button>
+                    <button id="scannerBtnEditar" class="hidden px-2 py-0.5 rounded-md bg-white/20 text-white text-xs hover:bg-white/30">Editar</button>
                 </div>
             </div>
         </div>
 
-        <!-- GRID -->
-        <div class="flex-1 bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
-            <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 flex items-center justify-between flex-shrink-0">
-                <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2">
-                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- GRID - MÁS ESPACIO -->
+        <div class="flex-1 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
+            <div class="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b flex items-center justify-between flex-shrink-0">
+                <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                     Productos en Inventario
                 </h3>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
                     <div class="relative">
-                        <input type="text" id="searchBox" placeholder="Buscar producto..." class="pl-9 pr-3 py-2 rounded-lg border-2 border-gray-300 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
-                        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <input type="text" id="searchBox" placeholder="Buscar..." class="pl-8 pr-3 py-1.5 rounded-lg border border-gray-300 text-xs focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 w-48">
+                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
-                    <div class="h-6 w-px bg-gray-300"></div>
-                    <span id="productos-mostrados" class="text-sm font-bold text-gray-800 bg-emerald-100 px-3 py-1 rounded-lg">0 productos</span>
+                    <span id="productos-mostrados" class="text-xs font-bold text-gray-800 bg-emerald-100 px-2.5 py-1 rounded-lg">0 productos</span>
                 </div>
             </div>
 
+            <div class="flex-1 overflow-y-auto p-3">
+                <div id="productosGrid"
+                    class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-stretch content-start auto-rows-fr min-h-[360px]">
+                </div>
 
-            <div class="flex-1 overflow-y-auto p-4">
-                <!-- Grid con menos columnas para más espacio -->
-                <div id="productosGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
 
                 <div id="emptyState" class="hidden flex flex-col items-center justify-center h-full text-gray-400 py-12">
                     <svg class="w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -444,8 +461,12 @@
                     <input type="number" id="crear_prod_stock_actual" name="prod_stock_actual" min="0" value="1" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
                 </div>
 
-
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo *</label>
+                    <input type="number" id="crear_prod_stock_minimo" name="prod_stock_minimo" min="0" value="5" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                </div>
+
+                <div class="col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Fotografía</label>
                     <input type="file" id="crear_prod_imagen" name="prod_imagen" accept="image/*" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
                 </div>

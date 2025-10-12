@@ -38,36 +38,10 @@ const scannerBtnImprimir = document.getElementById("scannerBtnImprimir");
 const scannerBtnEditar = document.getElementById("scannerBtnEditar");
 
 // ========================= ESCÁNER CON BÚSQUEDA DINÁMICA =========================
-const manejarEscaneo = (e) => {
-
-    if (e.target.id === "scannerInput") {
-        const codigo = scannerInput.value.trim().replace(/[\r\n]/g, '');
-
-        console.log("Key pressed:", e.key, "Code:", codigo);
-
-        if (e.key === "Enter") {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (codigo) {
-                console.log("Buscando producto con código:", codigo);
-                buscarProductoPorCodigo(codigo);
-            }
-        } else {
-            if (codigo.length >= 3) {
-                busquedaDinamicaScanner(codigo);
-            } else {
-                ocultarSugerenciasScanner();
-            }
-        }
-    }
-};
-
-// Búsqueda dinámica en tiempo real
 const busquedaDinamicaScanner = (codigo) => {
     const coincidencias = productosData.filter(p =>
         p.prod_codigo && p.prod_codigo.toLowerCase().includes(codigo.toLowerCase())
-    ).slice(0, 5); // Máximo 5 sugerencias
+    ).slice(0, 5);
 
     if (coincidencias.length > 0) {
         mostrarSugerenciasScanner(coincidencias);
@@ -101,7 +75,6 @@ const mostrarSugerenciasScanner = (productos) => {
         </div>
     `).join('');
 
-    // Event listener para seleccionar sugerencia
     sugerenciasDiv.querySelectorAll('.sugerencia-item').forEach(item => {
         item.addEventListener('click', () => {
             const codigo = item.dataset.codigo;
@@ -119,7 +92,6 @@ const ocultarSugerenciasScanner = () => {
     }
 };
 
-// Ocultar sugerencias al hacer clic fuera
 document.addEventListener('click', (e) => {
     if (!e.target.closest('#scannerInput') && !e.target.closest('#scanner-sugerencias')) {
         ocultarSugerenciasScanner();
@@ -127,26 +99,27 @@ document.addEventListener('click', (e) => {
 });
 
 const buscarProductoPorCodigo = async (codigo) => {
-    // Limpiar el código nuevamente por si acaso
-    codigo = codigo.trim().replace(/[\r\n]/g, '');
+    codigo = normalizarCodigo(codigo);
 
-    console.log("=== INICIANDO BÚSQUEDA ==="); // DEBUG
-    console.log("Código recibido:", codigo); // DEBUG
-    console.log("Longitud:", codigo.length); // DEBUG
+    console.log("=== INICIANDO BÚSQUEDA ===");
+    console.log("Código:", codigo, "| Longitud:", codigo.length);
 
     if (!codigo) {
-        console.log("Código vacío - abortando"); // DEBUG
+        console.log("❌ Código vacío");
         scannerStatus.textContent = "● Código vacío";
         scannerStatus.className = "text-sm font-semibold text-red-600";
+        limpiarFeedbackScanner();
+        scannerInput.focus();
         return;
     }
+
+    // Limpiar feedback previo
+    limpiarFeedbackScanner();
 
     scannerStatus.textContent = "● Buscando...";
     scannerStatus.className = "text-sm font-semibold text-amber-600";
 
     try {
-        console.log("Haciendo fetch a /productos/buscar-codigo"); // DEBUG
-
         const r = await fetch("/productos/buscar-codigo", {
             method: "POST",
             headers: {
@@ -158,58 +131,89 @@ const buscarProductoPorCodigo = async (codigo) => {
             body: JSON.stringify({ codigo }),
         });
 
-        console.log("Respuesta recibida, status:", r.status); // DEBUG
-
         if (!r.ok) {
-            throw new Error(`HTTP error! status: ${r.status}`);
+            throw new Error(`HTTP ${r.status}`);
         }
 
         const j = await r.json();
-        console.log("JSON respuesta:", j); // DEBUG
+        console.log("📦 Respuesta:", j);
 
         if (j.success && j.encontrado) {
-            console.log("Producto ENCONTRADO - abriendo modal"); // DEBUG
+            console.log("✅ PRODUCTO ENCONTRADO - Abriendo modal");
             const p = j.producto;
-            scannerStatus.textContent = "● Producto encontrado";
+
+            scannerStatus.textContent = "● Encontrado";
             scannerStatus.className = "text-sm font-semibold text-green-600";
 
-            scannerNombreWrap?.classList.remove("hidden");
-            scannerNombre.textContent = p.prod_nombre || "(Sin nombre)";
-            scannerBtnImprimir.classList.remove("hidden");
-            scannerBtnEditar.classList.remove("hidden");
-            scannerBtnImprimir.onclick = () => window.imprimirCodigoBarras(p.prod_codigo, p.prod_nombre);
-            scannerBtnEditar.onclick = () => abrirModalActualizarStock(p);
-
-            // ABRIR EL MODAL AUTOMÁTICAMENTE
+            // Abrir modal directamente SIN mostrar feedback
             abrirModalActualizarStock(p);
+
+            // Limpiar después de un momento
+            setTimeout(() => {
+                limpiarFeedbackScanner();
+                scannerStatus.textContent = "● Listo";
+                scannerStatus.className = "text-sm font-semibold text-emerald-600";
+            }, 1000);
+
         } else {
-            console.log("Producto NO ENCONTRADO - preguntando crear"); // DEBUG
+            console.log("❌ PRODUCTO NO ENCONTRADO");
+
             scannerStatus.textContent = "● No encontrado";
             scannerStatus.className = "text-sm font-semibold text-red-600";
 
-            // PREGUNTAR SI QUIERE CREAR EL PRODUCTO
             await preguntarCrearProducto(codigo);
-            scannerNombreWrap?.classList.add("hidden");
+
+            // Limpiar después del Swal
+            limpiarFeedbackScanner();
+            setTimeout(() => {
+                scannerStatus.textContent = "● Listo";
+                scannerStatus.className = "text-sm font-semibold text-emerald-600";
+            }, 300);
         }
+
     } catch (e) {
-        console.error("Error en búsqueda:", e);
-        scannerStatus.textContent = "● Error de conexión";
+        console.error("💥 Error:", e);
+
+        scannerStatus.textContent = "● Error";
         scannerStatus.className = "text-sm font-semibold text-red-600";
 
         await Swal.fire({
             icon: "error",
             title: "Error de conexión",
             text: "No se pudo conectar con el servidor",
-            timer: 2000
+            timer: 2500,
+            showConfirmButton: false
         });
-    } finally {
-        scannerInput.value = "";
+
+        limpiarFeedbackScanner();
         setTimeout(() => {
             scannerStatus.textContent = "● Listo";
             scannerStatus.className = "text-sm font-semibold text-emerald-600";
+        }, 300);
+    } finally {
+        setTimeout(() => {
             scannerInput.focus();
-        }, 1800);
+            console.log("🎯 Scanner re-enfocado");
+        }, 100);
     }
+};
+
+
+const normalizarCodigo = (codigo) => {
+    return codigo
+        .trim()
+        .replace(/[\r\n]/g, '') // Quitar saltos de línea
+        .replace(/[''`´]/g, '-') // Reemplazar comillas por guion
+        .replace(/\s+/g, '-')    // Reemplazar espacios por guion
+        .toUpperCase();          // Uniformar a mayúsculas
+};
+
+// Nueva función para limpiar el feedback del scanner
+const limpiarFeedbackScanner = () => {
+    scannerNombreWrap?.classList.add("hidden");
+    scannerBtnImprimir?.classList.add("hidden");
+    scannerBtnEditar?.classList.add("hidden");
+    if (scannerNombre) scannerNombre.textContent = "";
 };
 
 const preguntarCrearProducto = async (codigo) => {
@@ -224,11 +228,21 @@ const preguntarCrearProducto = async (codigo) => {
         cancelButtonColor: "#6b7280",
     });
 
+    window.codigoEnProceso = false;
+    console.log("🔓 Flag liberado después de Swal");
+
     if (result.isConfirmed) {
-        // ABRIR MODAL DE CREACIÓN
         abrirModalCrearProducto(codigo);
+    } else {
+        // Resetear scanner cuando cancela
+        setTimeout(() => {
+            resetearScanner();
+            limpiarFeedbackScanner();
+        }, 100);
     }
 };
+
+
 // ========================= CARGA LISTA =========================
 const cargarProductos = async (categoriaId = "") => {
     try {
@@ -284,7 +298,6 @@ const renderizarProductos = (productos) => {
 const crearCardProducto = (p) => {
     const div = document.createElement("div");
 
-    // ====== datos calculados ======
     const stock = Number(p.prod_stock_actual || 0);
     const minimo = Number(p.prod_stock_minimo || 0);
     const categoria = (p?.tipo?.tprod_nombre || "Sin categoría");
@@ -295,99 +308,82 @@ const crearCardProducto = (p) => {
 
     const img = p.prod_imagen
         ? `/storage/${p.prod_imagen}`
-        : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="180" height="140"%3E%3Crect width="100%25" height="100%25" fill="%23f8fafc"/%3E%3Ctext x="50%25" y="52%25" text-anchor="middle" font-size="12" fill="%2394a3b8"%3ESin imagen%3C/text%3E%3C/svg%3E';
+        : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="160"%3E%3Crect width="100%25" height="100%25" fill="%23f8fafc"/%3E%3Ctext x="50%25" y="52%25" text-anchor="middle" font-size="12" fill="%2394a3b8"%3ESin imagen%3C/text%3E%3C/svg%3E';
 
     const estadoClase =
-        stock === 0 ? "bg-red-100 text-red-700" :
-            stock <= minimo ? "bg-amber-100 text-amber-700" :
-                "bg-emerald-100 text-emerald-700";
+        stock === 0 ? "bg-red-100 text-red-700 border-red-300" :
+        stock <= minimo ? "bg-amber-100 text-amber-700 border-amber-300" :
+        "bg-emerald-100 text-emerald-700 border-emerald-300";
 
     const estadoTexto =
         stock === 0 ? "Agotado" :
-            stock <= minimo ? "Stock bajo" :
-                "En stock";
+        stock <= minimo ? "Stock bajo" :
+        "En stock";
 
-    // ====== CARD estilo profesional ======
-    div.className = "group bg-white rounded-lg border border-gray-200 hover:border-emerald-400 hover:shadow-md transition-all duration-300 flex flex-col h-full overflow-hidden";
+    div.className =
+        "bg-white rounded-xl border border-gray-200 hover:border-emerald-400 hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden h-full";
 
     div.innerHTML = `
-    <!-- IMAGEN -->
-    <div class="relative w-full h-32 bg-gray-50 flex items-center justify-center overflow-hidden p-2">
-      <img
-        src="${img}"
-        alt="${nombre}"
-        class="max-w-full max-h-full object-contain"
-        onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'180\\' height=\\'140\\'%3E%3Crect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f8fafc\\'/%3E%3Ctext x=\\'50%25\\' y=\\'52%25\\' text-anchor=\\'middle\\' font-size=\\'12\\' fill=\\'%2394a3b8\\'%3ESin imagen%3C/text%3E%3C/svg%3E'">
-      
-      ${!tieneCodigo ? `
-        <span class="absolute top-1 left-1 text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500 text-white">SIN CÓDIGO</span>
-      ` : ""}
-    </div>
-
-    <!-- CONTENIDO -->
-    <div class="p-2 flex flex-col gap-1 flex-1">
-      <!-- CATEGORÍA Y ESTADO -->
-      <div class="flex justify-between items-center mb-1">
-        <span class="text-xs text-gray-500 font-medium">${categoria}</span>
-        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${estadoClase}">
-          ${estadoTexto}
-        </span>
+      <!-- Imagen -->
+      <div class="w-full h-[150px] bg-gray-50 flex items-center justify-center overflow-hidden relative">
+          <img
+              src="${img}"
+              alt="${nombre}"
+              class="w-full h-full max-w-[130px] max-h-[130px] object-contain mx-auto"
+              onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'160\\' height=\\'160\\'%3E%3Crect width=\\'100%25\\' height=\\'100%25\\' fill=\\'%23f8fafc\\'/%3E%3Ctext x=\\'50%25\\' y=\\'52%25\\' text-anchor=\\'middle\\' font-size=\\'12\\' fill=\\'%2394a3b8\\'%3ESin imagen%3C/text%3E%3C/svg%3E'">
+          ${!tieneCodigo ? `<span class="absolute top-1 left-1 text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500 text-white shadow-sm">SIN CÓDIGO</span>` : ""}
       </div>
 
-      <!-- NOMBRE -->
-      <h3 class="text-sm font-semibold text-gray-800 leading-tight line-clamp-2 min-h-[2.2rem] mb-1">
-        ${nombre}
-      </h3>
+      <!-- Contenido -->
+      <div class="flex flex-col justify-between flex-1 px-3 py-2">
+          <div class="flex justify-between items-center mb-1">
+              <span class="text-[11px] text-gray-500 font-medium truncate">${categoria}</span>
+              <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded border ${estadoClase}">${estadoTexto}</span>
+          </div>
 
-      <!-- STOCK -->
-      <div class="flex justify-between items-center text-xs mb-1">
-        <span class="text-gray-600">Stock:</span>
-        <span class="font-bold ${stock === 0 ? 'text-red-600' : stock <= minimo ? 'text-amber-600' : 'text-gray-800'}">
-          ${stock} un.
-        </span>
+          <h3 class="text-[13px] font-semibold text-gray-800 leading-tight line-clamp-2 min-h-[2.2rem]">${nombre}</h3>
+
+          <div class="flex justify-between items-center text-[11px] mt-1">
+              <span class="text-gray-500">Stock:</span>
+              <span class="font-semibold ${stock === 0 ? 'text-red-600' : stock <= minimo ? 'text-amber-600' : 'text-gray-700'}">${stock} un.</span>
+          </div>
+
+          <div class="text-emerald-700 font-black text-sm mt-1">Q${precio.toFixed(2)}</div>
+
+          <!-- Código y botones -->
+          <div class="flex items-center justify-between bg-gray-50 rounded-md px-1.5 py-1 mt-2 border border-gray-100">
+              <span class="text-[10px] font-mono text-gray-700 truncate flex-1 mr-1">${tieneCodigo ? codigo : "Sin código"}</span>
+              <div class="flex gap-1">
+                  <button type="button"
+                      class="p-1 rounded hover:bg-white transition"
+                      title="Imprimir etiqueta"
+                      data-action="imprimir-barcode"
+                      data-codigo="${codigo}"
+                      data-nombre="${nombre}"
+                      ${!tieneCodigo ? "disabled" : ""}>
+                      <svg class="w-3.5 h-3.5 ${tieneCodigo ? "text-gray-600 hover:text-blue-600" : "text-gray-300"}"
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                      </svg>
+                  </button>
+                  <button type="button"
+                      class="p-1 rounded hover:bg-white transition"
+                      title="Modificar producto"
+                      data-action="editar-producto"
+                      data-id="${p.prod_id}">
+                      <svg class="w-3.5 h-3.5 text-gray-600 hover:text-emerald-600"
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                  </button>
+              </div>
+          </div>
       </div>
+    `;
 
-      <!-- PRECIO -->
-      <div class="mb-2">
-        <div class="text-emerald-700 font-black text-base">Q${precio.toFixed(2)}</div>
-      </div>
-
-      <!-- CÓDIGO Y ACCIONES -->
-      <div class="flex items-center justify-between bg-gray-50 rounded px-1.5 py-1 mt-auto">
-        <span class="text-[10px] font-mono text-gray-700 truncate flex-1 mr-1">
-          ${tieneCodigo ? codigo : "Sin código"}
-        </span>
-        
-        <div class="flex gap-0.5">
-          <button
-            type="button"
-            class="p-1 rounded hover:bg-white transition"
-            title="Imprimir etiqueta"
-            data-action="imprimir-barcode"
-            data-codigo="${codigo}"
-            data-nombre="${nombre}"
-            ${!tieneCodigo ? "disabled" : ""}>
-            <svg class="w-3.5 h-3.5 ${tieneCodigo ? "text-gray-600 hover:text-blue-600" : "text-gray-300"}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            class="p-1 rounded hover:bg-white transition"
-            title="Modificar producto"
-            data-action="editar-producto"
-            data-id="${p.prod_id}">
-            <svg class="w-3.5 h-3.5 text-gray-600 hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-    // Event listeners
+    // Eventos
     div.querySelector('[data-action="imprimir-barcode"]')?.addEventListener("click", (e) => {
         const btn = e.currentTarget;
         if (!btn.disabled) {
@@ -402,12 +398,12 @@ const crearCardProducto = (p) => {
     return div;
 };
 
-// ========================= BÚSQUEDA MEJORADA (por nombre Y código) =========================
+
+// ========================= BÚSQUEDA MEJORADA =========================
 const buscarProductos = (t) => {
     const q = (t || "").toLowerCase().trim();
 
     if (!q) {
-        // Si está vacío, mostrar todos los productos actuales
         renderizarProductos(productosData);
         return;
     }
@@ -416,16 +412,13 @@ const buscarProductos = (t) => {
         const nombre = (p.prod_nombre || "").toLowerCase();
         const codigo = (p.prod_codigo || "").toLowerCase();
         const categoria = (p?.tipo?.tprod_nombre || "").toLowerCase();
-
-        return nombre.includes(q) ||
-            codigo.includes(q) ||
-            categoria.includes(q);
+        return nombre.includes(q) || codigo.includes(q) || categoria.includes(q);
     });
 
     renderizarProductos(arr);
 };
 
-// ========================= FILTROS/BÚSQUEDA =========================
+// ========================= FILTROS =========================
 const filtrarPorCategoria = (id) => {
     categoriaActual = id;
     document.querySelectorAll(".categoria-btn").forEach(b => {
@@ -434,9 +427,7 @@ const filtrarPorCategoria = (id) => {
             : "categoria-btn w-full text-left px-4 py-3.5 rounded-xl transition-all duration-200 hover:bg-gray-50 border-2 border-transparent hover:border-emerald-300 hover:shadow-sm group";
     });
 
-    // Limpiar búsqueda al cambiar categoría
     if (searchBox) searchBox.value = "";
-
     cargarProductos(id);
 };
 
@@ -444,7 +435,6 @@ const filtrarPorCategoria = (id) => {
 const abrirModalActualizarStock = (p) => {
     productoActual = p;
 
-    // info
     document.getElementById("update_prod_id").value = p.prod_id;
     document.getElementById("update_prod_nombre").textContent = p.prod_nombre || "(Sin nombre)";
     document.getElementById("update_prod_codigo").textContent = p.prod_codigo || "Sin código";
@@ -458,7 +448,6 @@ const abrirModalActualizarStock = (p) => {
 
     document.getElementById("update_prod_imagen").src = imgSrc;
 
-    // defaults
     document.getElementById("update_cantidad").value = 1;
     document.getElementById("update_motivo").value = "";
     document.getElementById("update_tipo_movimiento").value = "entrada";
@@ -470,11 +459,9 @@ const abrirModalActualizarStock = (p) => {
         btnDel.onclick = () => window.eliminarProducto(p.prod_id);
     }
 
-    // editar
     llenarDatosEdicionQuick(p);
-
-    // tabs
     cambiarTab("stock");
+
     document.querySelectorAll(".accion-btn").forEach(btn => {
         btn.className = (btn.dataset.accion === "entrada")
             ? "accion-btn px-5 py-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-emerald-700 font-bold transition hover:bg-emerald-100 hover:shadow-md flex items-center justify-center gap-2"
@@ -500,7 +487,6 @@ const llenarDatosEdicionQuick = (p) => {
     const imgSrc = p.prod_imagen
         ? `/storage/${p.prod_imagen}`
         : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100%25" height="100%25" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-size="12" fill="%236b7280"%3ESin imagen%3C/text%3E%3C/svg%3E';
-
     prev.src = imgSrc;
 };
 
@@ -585,7 +571,8 @@ const guardarMovimientoStock = async (e) => {
                 timer: 2000, showConfirmButton: false
             });
             closeModal("modalActualizarStock");
-            cargarProductos(categoriaActual);
+            limpiarFeedbackScanner();
+            await cargarProductos(categoriaActual);
             scannerInput.focus();
         } else {
             Swal.fire({ icon: "error", title: "Error", text: j.message || "No se pudo actualizar el stock" });
@@ -599,7 +586,18 @@ const guardarMovimientoStock = async (e) => {
     }
 };
 
-// Vista previa al escoger imagen - CORREGIDO
+// Nueva función para resetear el scanner
+const resetearScanner = () => {
+    if (typeof window.codigoEnProceso !== 'undefined') {
+        window.codigoEnProceso = false;
+        console.log("🔄 Scanner reseteado manualmente");
+    }
+    if (scannerInput) {
+        scannerInput.value = "";
+        scannerInput.focus();
+    }
+};
+
 document.getElementById("edit_quick_prod_imagen")?.addEventListener("change", (e) => {
     const f = e.target.files?.[0];
     const prev = document.getElementById("edit_quick_preview");
@@ -652,7 +650,8 @@ const guardarEdicionQuick = async (e) => {
                 showConfirmButton: false
             });
             closeModal("modalActualizarStock");
-            cargarProductos(categoriaActual);
+            limpiarFeedbackScanner();
+            await cargarProductos(categoriaActual);
             scannerInput.focus();
         } else {
             Swal.fire("Error", j.message || "No se pudo actualizar", "error");
@@ -679,7 +678,10 @@ const abrirModalCrearProducto = (codigo) => {
     fila?.classList.add("hidden");
     if (codigo) {
         hidden.value = codigo;
-        if (vis && fila) { vis.value = codigo; fila.classList.remove("hidden"); }
+        if (vis && fila) {
+            vis.value = codigo;
+            fila.classList.remove("hidden");
+        }
     }
 
     document.getElementById("modalCrearProducto").classList.remove("hidden");
@@ -688,7 +690,6 @@ const abrirModalCrearProducto = (codigo) => {
 const crearProductoNuevo = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    fd.append("prod_stock_minimo", "5");
 
     setBtnLoading(document.getElementById("btnCrearProducto"), true, "Creando...");
     Loader.show("Creando producto...");
@@ -722,9 +723,9 @@ const crearProductoNuevo = async (e) => {
             });
 
             closeModal("modalCrearProducto");
-            cargarProductos(categoriaActual);
+            limpiarFeedbackScanner();
+            await cargarProductos(categoriaActual);
             scannerInput.focus();
-            location.reload();
         } else {
             Swal.fire({ icon: "error", title: "Error", text: j.message || "No se pudo crear el producto" });
         }
@@ -749,7 +750,9 @@ window.abrirModalStock = async (id) => {
         });
         const j = await r.json();
         if (j.success && j.producto) abrirModalActualizarStock(j.producto);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        console.error(e);
+    }
 };
 
 window.imprimirCodigoBarras = (codigo, nombre) => {
@@ -757,6 +760,7 @@ window.imprimirCodigoBarras = (codigo, nombre) => {
         Swal.fire({ icon: "warning", title: "Sin código", text: "Este producto no tiene código para imprimir" });
         return;
     }
+
     const w = window.open("", "_blank", "width=400,height=600");
     const html = `
     <!DOCTYPE html><html><head><meta charset="UTF-8"><title>Código de Barras - ${nombre}</title>
@@ -778,11 +782,22 @@ window.imprimirCodigoBarras = (codigo, nombre) => {
         </div>
         <div class="instrucciones">💡 Presiona Ctrl+P o Cmd+P para imprimir</div>
       </div>
-      <script>window.onload=()=>setTimeout(()=>window.print(),500)</script>
+      <script>
+        window.onload = () => {
+          setTimeout(() => window.print(), 500);
+        };
+        
+        window.onafterprint = () => {
+          window.close();
+        };
+      </script>
     </body></html>`;
+
     w.document.write(html);
     w.document.close();
+
 };
+
 
 window.generarCodigoProducto = async (id) => {
     try {
@@ -843,7 +858,13 @@ window.eliminarProducto = async (id) => {
         });
         const j = await r.json();
         if (j.success) {
-            await Swal.fire({ icon: "success", title: "Producto eliminado", timer: 1500, showConfirmButton: false });
+            await Swal.fire({
+                icon: "success",
+                title: "Producto eliminado",
+                timer: 1500,
+                showConfirmButton: false
+            });
+            closeModal("modalActualizarStock");
             cargarProductos(categoriaActual);
         } else {
             Swal.fire("Error", j.message || "No se pudo eliminar", "error");
@@ -856,7 +877,6 @@ window.eliminarProducto = async (id) => {
 };
 
 // ========================= FOCO & INIT =========================
-// ========================= FOCO & INIT =========================
 const enfocarScanner = () => {
     const activo = document.activeElement;
     const modalStockAbierto = document.querySelector("#modalActualizarStock:not(.hidden)");
@@ -867,7 +887,6 @@ const enfocarScanner = () => {
         const tagName = activo?.tagName.toLowerCase();
 
         if (!activo || activo === document.body || !elementosQueNoDebenTenerFoco.includes(tagName)) {
-            console.log("Enfocando scanner..."); // DEBUG
             scannerInput.focus();
         }
     }
@@ -876,47 +895,114 @@ const enfocarScanner = () => {
 document.addEventListener("DOMContentLoaded", () => {
     cargarProductos();
 
+    // Escuchar cuando se cierra cualquier modal
+    document.addEventListener('modalClosed', (e) => {
+        const modalId = e.detail.modalId;
+
+        // Solo actuar si es uno de nuestros modales de productos
+        if (modalId === 'modalActualizarStock' || modalId === 'modalCrearProducto') {
+            setTimeout(() => {
+                resetearScanner();
+                limpiarFeedbackScanner();
+            }, 100);
+        }
+    });
+
+    // Exportar para que app.js pueda usarla si existe
+    window.limpiarFeedbackScanner = limpiarFeedbackScanner;
+
     // === CONFIGURACIÓN MEJORADA DEL ESCÁNER ===
     if (scannerInput) {
-        console.log("Configurando escáner..."); // DEBUG
+        console.log("✅ Configurando escáner...");
 
-        // Listener separado y específico para el Enter
-        scannerInput.addEventListener("keydown", (e) => {
+        let timeoutBusqueda = null;
+
+        // HACER GLOBAL para poder resetearlo desde otras funciones
+        window.codigoEnProceso = false;
+
+        // Listener ÚNICO para el escáner
+        scannerInput.addEventListener("keydown", async (e) => {
             if (e.key === "Enter") {
                 e.preventDefault();
-                e.stopImmediatePropagation(); // IMPORTANTE
+                e.stopImmediatePropagation();
 
-                const codigo = scannerInput.value.trim().replace(/[\r\n]/g, '');
-                console.log("Escáner - Enter detectado, código:", codigo); // DEBUG
-
-                if (codigo) {
-                    buscarProductoPorCodigo(codigo);
+                if (timeoutBusqueda) {
+                    clearTimeout(timeoutBusqueda);
+                    timeoutBusqueda = null;
                 }
 
-                // Limpiar inmediatamente después de capturar
-                setTimeout(() => {
+                const codigo = scannerInput.value.trim().replace(/[\r\n]/g, '');
+                console.log("✅ Enter detectado - Código:", codigo);
+                console.log("📌 Flag codigoEnProceso:", window.codigoEnProceso);
+
+                if (window.codigoEnProceso) {
+                    console.log("⚠️ Búsqueda ya en proceso, ignorando...");
+                    return;
+                }
+
+                if (codigo) {
+                    window.codigoEnProceso = true;
+                    console.log("🔒 Flag activado");
                     scannerInput.value = "";
-                }, 100);
+                    ocultarSugerenciasScanner();
+
+                    await buscarProductoPorCodigo(codigo);
+
+                    // IMPORTANTE: Resetear después de un pequeño delay
+                    setTimeout(() => {
+                        window.codigoEnProceso = false;
+                        console.log("🔓 Flag liberado");
+                    }, 500);
+                }
             }
         });
 
-        // Búsqueda dinámica separada
+        // Búsqueda dinámica con debounce
         scannerInput.addEventListener("input", (e) => {
             const codigo = e.target.value.trim().replace(/[\r\n]/g, '');
+
+            if (timeoutBusqueda) {
+                clearTimeout(timeoutBusqueda);
+            }
+
             if (codigo.length >= 3) {
-                busquedaDinamicaScanner(codigo);
+                timeoutBusqueda = setTimeout(() => {
+                    busquedaDinamicaScanner(codigo);
+                }, 300);
             } else {
                 ocultarSugerenciasScanner();
             }
         });
 
-        // Enfocar automáticamente al cargar
         setTimeout(() => {
             scannerInput.focus();
-        }, 1000);
+            console.log("🎯 Scanner enfocado");
+        }, 800);
     }
 
-    // El resto de tus event listeners...
+    // Listener global para re-enfocar cuando la ventana recupera el foco
+    let focusTimeout = null;
+    window.addEventListener('focus', () => {
+        // Cancelar timeout anterior si existe
+        if (focusTimeout) {
+            clearTimeout(focusTimeout);
+        }
+
+        // Debounce para evitar ejecuciones múltiples
+        focusTimeout = setTimeout(() => {
+            const modalStockAbierto = document.querySelector("#modalActualizarStock:not(.hidden)");
+            const modalCrearAbierto = document.querySelector("#modalCrearProducto:not(.hidden)");
+
+            if (scannerInput && !modalStockAbierto && !modalCrearAbierto) {
+                resetearScanner();
+                console.log("🎯 Scanner re-enfocado por evento focus");
+            }
+
+            focusTimeout = null;
+        }, 300); // Esperar 300ms antes de ejecutar
+    });
+
+    // Event listeners
     searchBox?.addEventListener("input", (e) => buscarProductos(e.target.value));
 
     document.querySelectorAll(".categoria-btn").forEach(btn => {
@@ -950,6 +1036,5 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tabStock")?.addEventListener("click", () => cambiarTab("stock"));
     document.getElementById("tabEditar")?.addEventListener("click", () => cambiarTab("editar"));
 
-    // Enfocar después de un breve delay
     setTimeout(enfocarScanner, 500);
 });
