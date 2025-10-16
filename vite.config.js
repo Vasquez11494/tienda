@@ -12,6 +12,7 @@ export default defineConfig({
                 'resources/js/productos/categorias.js', 
                 'resources/js/productos/crear.js', 
                 'resources/js/productos/reportes.js', 
+                'resources/js/ventas/index.js', 
             ],
             refresh: true,
         }),

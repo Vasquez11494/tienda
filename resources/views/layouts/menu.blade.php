@@ -106,7 +106,7 @@
                             class="invisible opacity-0 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 transition-all absolute left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-40"
                             role="menu" aria-label="Submenú Ventas">
 
-                            <a href="{{ url('/ventas/create') }}"
+                            <a href="{{ url('/ventas/index') }}"
                                 class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 transition group" role="menuitem">
                                 <div class="p-1.5 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition">
                                     <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,7 +290,7 @@
                         </svg>
                     </button>
                     <div class="hidden flex-col" data-accordion-panel="ventas">
-                        <a href="{{ url('/ventas/create') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Nueva Venta</a>
+                        <a href="{{ url('/ventas/index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Nueva Venta</a>
                         <a href="{{ url('/ventas') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Historial de Ventas</a>
                         <a href="{{ url('/ventas/reportes') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Reportes y Gráficas</a>
                     </div>

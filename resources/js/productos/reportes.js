@@ -41,56 +41,27 @@ const listaMovimientos = document.getElementById("lista-movimientos");
 const listaMasVendidos = document.getElementById("lista-mas-vendidos");
 const listaSinStock = document.getElementById("lista-sin-stock");
 
-// ========================= INICIALIZACIÓN =========================
-const inicializarReportes = () => {
-    console.log("📊 Inicializando módulo de reportes...");
-
-    // Establecer fechas por defecto (últimos 30 días)
-    const hoy = new Date();
-    const hace30Dias = new Date();
-    hace30Dias.setDate(hoy.getDate() - 30);
-
-    fechaDesde.value = hace30Dias.toISOString().split('T')[0];
-    fechaHasta.value = hoy.toISOString().split('T')[0];
-
-    // Actualizar filtros actuales
-    filtrosActuales.fecha_desde = fechaDesde.value;
-    filtrosActuales.fecha_hasta = fechaHasta.value;
-
-    // Cargar datos iniciales
-    cargarEstadisticas();
-    cargarReporteStockClasificado();
-
-    // Configurar event listeners
-    configurarEventListeners();
-    configurarScanner();
-};
-
-const configurarEventListeners = () => {
-    // Filtros
-    btnAplicarFiltros?.addEventListener("click", aplicarFiltros);
-    btnExportar?.addEventListener("click", exportarReporte);
-
-    // Cambio de tipo de reporte
-    filtroTipo?.addEventListener("change", (e) => {
-        cambiarTipoReporte(e.target.value);
-    });
-
-    // Fecha automática
-    fechaDesde?.addEventListener("change", (e) => {
-        if (fechaHasta.value && e.target.value > fechaHasta.value) {
-            fechaHasta.value = e.target.value;
-        }
-    });
-};
-
-
+// ========================= SCANNER CORREGIDO =========================
 let scanBuffer = "";
 let lastKeyTime = 0;
-const SCAN_GAP_MS = 50;   // tiempo máx entre teclas para considerarlo "escaneo"
-const SCAN_MIN_LEN = 6;   // longitud mínima de código
+const SCAN_GAP_MS = 50;
+const SCAN_MIN_LEN = 6;
 
-// HUD pequeño (esquina superior derecha) para feedback
+
+const limpiarCodigoBarras = (codigo) => {
+    const codigoLimpio = codigo
+        .trim()
+        .replace(/[^a-zA-Z0-9]/g, '')  
+        .toUpperCase();
+
+    if (codigoLimpio.startsWith('PROD') && codigoLimpio.length > 4) {
+        return `PROD-${codigoLimpio.substring(4)}`;
+    }
+
+    return codigoLimpio;
+};
+
+// HUD para feedback de escaneo
 const setScanHUD = (() => {
     let node = null, hideT = null;
     return (text, type = "info") => {
@@ -123,73 +94,122 @@ const setScanHUD = (() => {
     };
 })();
 
-// Captura global de teclas (ignora inputs/textarea)
+// Scanner global unificado
 document.addEventListener("keydown", (e) => {
     const tag = (e.target?.tagName || "").toUpperCase();
-    if (e.isComposing) return;
-    // permite el escaneo aunque el foco esté en inputs; solo bloquea tecleo manual (no Enter)
-    if ((tag === "INPUT" || tag === "TEXTAREA") && e.key !== "Enter") return;
+
+    // Si está en un input/textarea y NO es Enter, ignorar (tecleo manual)
+    if ((tag === "INPUT" || tag === "TEXTAREA") && e.key !== "Enter") {
+        return;
+    }
 
     const now = Date.now();
-    // Si pasó mucho tiempo entre teclas, reiniciamos buffer
-    if (now - lastKeyTime > SCAN_GAP_MS) scanBuffer = "";
+
+    // Reiniciar buffer si pasó mucho tiempo
+    if (now - lastKeyTime > SCAN_GAP_MS) {
+        scanBuffer = "";
+    }
     lastKeyTime = now;
 
     if (e.key === "Enter") {
-        const code = scanBuffer.trim();
+        const codigo = scanBuffer.trim();
         scanBuffer = "";
-        if (code.length >= SCAN_MIN_LEN) {
+
+        if (codigo.length >= SCAN_MIN_LEN) {
             e.preventDefault();
-            setScanHUD("Escaneando…", "info");
-            manejarCodigoEscaneado(code);
+            setScanHUD("Escaneando...", "info");
+            manejarCodigoEscaneadoReportes(codigo);
         }
         return;
     }
 
+    // Acumular caracteres (manejar diferentes tipos de guiones)
     if (e.key.length === 1) {
         const ch = (e.key === '–' || e.key === '—' || e.key === '−') ? '-' : e.key;
         scanBuffer += ch;
     }
-
 });
 
-// Manejar el código: reusa tu flujo existente
-async function manejarCodigoEscaneado(codigo) {
+// Manejar código escaneado en reportes
+async function manejarCodigoEscaneadoReportes(codigo) {
     try {
-        await buscarProductoPorCodigo(codigo); // ya tienes esta función
-        // Nota: dentro de buscarProductoPorCodigo ya llamas a verHistorialProducto(prod_id)
+        // ✅ LIMPIAR EL CÓDIGO ANTES DE BUSCAR
+        const codigoLimpio = limpiarCodigoBarras(codigo);
+
+        console.log('🔍 Scanner Reportes - Código original:', codigo);
+        console.log('🔍 Scanner Reportes - Código limpio:', codigoLimpio);
+
+        if (codigoLimpio.length >= SCAN_MIN_LEN) {
+            await buscarProductoPorCodigo(codigoLimpio);
+        } else {
+            setScanHUD("Código muy corto", "error");
+            Swal.fire({
+                icon: "warning",
+                title: "Código inválido",
+                text: `El código debe tener al menos ${SCAN_MIN_LEN} caracteres después de limpiar. Longitud: ${codigoLimpio.length}`,
+                confirmButtonColor: "#ffc107",
+            });
+        }
     } catch (err) {
-        console.error("Scan error:", err);
+        console.error("Error en scanner de reportes:", err);
+        setScanHUD("Error al escanear", "error");
     }
 }
 
+// ========================= INICIALIZACIÓN =========================
+const inicializarReportes = () => {
+    console.log("📊 Inicializando módulo de reportes...");
 
+    // Establecer fechas por defecto (últimos 30 días)
+    const hoy = new Date();
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hoy.getDate() - 30);
 
-const configurarScanner = () => {
-    if (!scannerInput) return;
+    fechaDesde.value = hace30Dias.toISOString().split('T')[0];
+    fechaHasta.value = hoy.toISOString().split('T')[0];
 
-    scannerInput.addEventListener("keydown", async (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const codigo = scannerInput.value.trim();
+    // Actualizar filtros actuales
+    filtrosActuales.fecha_desde = fechaDesde.value;
+    filtrosActuales.fecha_hasta = fechaHasta.value;
 
-            if (codigo) {
-                await buscarProductoPorCodigo(codigo);
-                scannerInput.value = '';
-            }
+    // Cargar datos iniciales
+    cargarEstadisticas();
+    cargarReporteStockClasificado();
+
+    // Configurar event listeners
+    configurarEventListeners();
+};
+
+const configurarEventListeners = () => {
+    // Filtros
+    btnAplicarFiltros?.addEventListener("click", aplicarFiltros);
+    btnExportar?.addEventListener("click", exportarReporte);
+
+    // Cambio de tipo de reporte
+    filtroTipo?.addEventListener("change", (e) => {
+        cambiarTipoReporte(e.target.value);
+    });
+
+    // Fecha automática
+    fechaDesde?.addEventListener("change", (e) => {
+        if (fechaHasta.value && e.target.value > fechaHasta.value) {
+            fechaHasta.value = e.target.value;
         }
     });
 };
 
-// ========================= SCANNER EN REPORTES =========================
+// ========================= BUSCAR PRODUCTO POR CÓDIGO =========================
 const buscarProductoPorCodigo = async (codigo) => {
     try {
+        // Actualizar estado del scanner
         if (scannerStatus) {
             scannerStatus.textContent = "● Buscando...";
             scannerStatus.className = "text-sm font-semibold text-amber-600";
         }
 
-        const r = await fetch("/productos/reportes/buscar-codigo", {
+        console.log('🔎 Buscando producto con código:', codigo);
+
+        const response = await fetch("/productos/reportes/buscar-codigo", {
             method: "POST",
             headers: {
                 "X-CSRF-TOKEN": token,
@@ -199,34 +219,54 @@ const buscarProductoPorCodigo = async (codigo) => {
             body: JSON.stringify({ codigo }),
         });
 
-        const j = await r.json();
+        const data = await response.json();
 
-        if (j.success && j.encontrado) {
+        if (data.success && data.encontrado) {
             if (scannerStatus) {
                 scannerStatus.textContent = "● Encontrado";
                 scannerStatus.className = "text-sm font-semibold text-green-600";
             }
 
-            // Mostrar historial del producto encontrado por scanner
-            await verHistorialProducto(j.producto.prod_id);
+            setScanHUD(`✅ ${data.producto.prod_nombre}`, "ok");
+
+            // Mostrar historial del producto encontrado
+            await verHistorialProducto(data.producto.prod_id);
+
         } else {
             if (scannerStatus) {
                 scannerStatus.textContent = "● No encontrado";
                 scannerStatus.className = "text-sm font-semibold text-red-600";
             }
-            Swal.fire("Producto no encontrado", "El código escaneado no existe", "info");
+
+            setScanHUD("❌ Producto no encontrado", "error");
+
+            Swal.fire({
+                title: "Producto no encontrado",
+                text: "El código escaneado no existe en el sistema",
+                icon: "info",
+                confirmButtonColor: "#3b82f6",
+            });
         }
     } catch (error) {
-        console.error("Error en scanner:", error);
+        console.error("❌ Error en búsqueda por código:", error);
+
         if (scannerStatus) {
             scannerStatus.textContent = "● Error";
             scannerStatus.className = "text-sm font-semibold text-red-600";
         }
+
+        setScanHUD("❌ Error de conexión", "error");
+
+        Swal.fire({
+            title: "Error de conexión",
+            text: "No se pudo conectar con el servidor",
+            icon: "error",
+            confirmButtonColor: "#ef4444",
+        });
     }
 };
 
 // ========================= FILTROS =========================
-// En la función aplicarFiltros, agrega:
 const aplicarFiltros = () => {
     console.log("🔍 Aplicando filtros...", {
         fecha_desde: fechaDesde.value,
@@ -298,7 +338,6 @@ const cambiarTipoReporte = (tipo) => {
     // Cargar datos del reporte seleccionado
     recargarReporteActual();
 };
-
 
 // ========================= CARGAR DATOS =========================
 const cargarEstadisticas = async () => {
@@ -445,7 +484,6 @@ const renderizarStockClasificado = (data) => {
 
     listaStockBajo.innerHTML = contenidoHTML;
 };
-
 
 const crearTarjetaProducto = (producto, nivel) => {
     const config = {
@@ -746,7 +784,6 @@ const cargarReporteSinStock = async () => {
 };
 
 // ========================= RENDERIZADORES PARA OTROS REPORTES =========================
-// ========================= RENDERIZADOR MOVIMIENTOS MEJORADO =========================
 const renderizarMovimientos = (movimientos, total) => {
     console.log("🔄 Renderizando movimientos:", movimientos, "Total:", total);
 
@@ -821,7 +858,6 @@ const renderizarMovimientos = (movimientos, total) => {
     listaMovimientos.innerHTML = movimientosHTML;
 };
 
-// ========================= RENDERIZADOR MÁS VENDIDOS MEJORADO =========================
 const renderizarMasVendidos = (masVendidos, total) => {
     console.log("📈 Renderizando más vendidos:", masVendidos, "Total:", total);
 
@@ -907,7 +943,6 @@ const renderizarMasVendidos = (masVendidos, total) => {
     listaMasVendidos.innerHTML = masVendidosHTML;
 };
 
-// ========================= RENDERIZADOR SIN STOCK MEJORADO =========================
 const renderizarSinStock = (productos, total) => {
     console.log("📦 Renderizando sin stock:", productos, "Total:", total);
 

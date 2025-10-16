@@ -4,6 +4,7 @@ use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProductoTipoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportesController;
+use App\Http\Controllers\VentasController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -56,6 +57,12 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{id}', [ProductoController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/entrada-stock', [ProductoController::class, 'entradaStock'])->name('entrada.stock');
         Route::post('/{id}/asignar-codigo', [ProductoController::class, 'asignarCodigo'])->name('asignar.codigo');
+    });
+
+    Route::prefix('ventas')->name('ventas.')->group(function () {
+        Route::get('index', [VentasController::class, 'index'])->name('index');
+        Route::post('verificarProducto', [VentasController::class, 'BusquedaCodigo'])->name('busquedaAPI');
+        Route::post('buscarPorNombre', [VentasController::class, 'buscarPorNombre'])->name('buscar.nombre');
     });
 });
 
