@@ -127,6 +127,20 @@ class ProductoController extends Controller
 
         DB::beginTransaction();
         try {
+            // VERIFICAR MANUALMENTE si el código ya existe en productos ACTIVOS
+            if ($request->prod_codigo) {
+                $codigoExistente = Producto::where('prod_codigo', $request->prod_codigo)
+                    ->where('prod_situacion', 'Activo')
+                    ->exists();
+
+                if ($codigoExistente) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El código de barras ya existe para otro producto activo'
+                    ], 422);
+                }
+            }
+
             // Si no tiene código, generar uno único
             $codigo = $request->prod_codigo ?: Producto::generarCodigoUnico();
 
@@ -150,7 +164,6 @@ class ProductoController extends Controller
                 'prod_situacion' => 'Activo'
             ]);
 
-            // Registrar movimiento inicial de stock
             if ($request->prod_stock_actual > 0) {
                 StockMovimiento::create([
                     'prod_id' => $producto->prod_id,
@@ -185,8 +198,26 @@ class ProductoController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'prod_codigo' => 'nullable|string|max:50|unique:productos,prod_codigo,' . $id . ',prod_id',
-            'prod_nombre' => 'required|string|max:200',
+            'prod_codigo' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('productos', 'prod_codigo')
+                    ->where(function ($query) {
+                        return $query->where('prod_situacion', 'Activo');
+                    })
+                    ->ignore($id, 'prod_id')
+            ],
+            'prod_nombre' => [
+                'required',
+                'string',
+                'max:200',
+                Rule::unique('productos', 'prod_nombre')
+                    ->where(function ($query) {
+                        return $query->where('prod_situacion', 'Activo');
+                    })
+                    ->ignore($id, 'prod_id')
+            ],
             'prod_descripcion' => 'nullable|string',
             'prod_precio_compra' => 'required|numeric|min:0',
             'prod_precio_venta' => 'required|numeric|min:0',
@@ -198,6 +229,21 @@ class ProductoController extends Controller
         DB::beginTransaction();
         try {
             $producto = Producto::findOrFail($id);
+
+            // VERIFICAR MANUALMENTE si el código ya existe en productos ACTIVOS (excluyendo el actual)
+            if ($request->prod_codigo && $request->prod_codigo !== $producto->prod_codigo) {
+                $codigoExistente = Producto::where('prod_codigo', $request->prod_codigo)
+                    ->where('prod_situacion', 'Activo')
+                    ->where('prod_id', '!=', $id)
+                    ->exists();
+
+                if ($codigoExistente) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El código de barras ya existe para otro producto activo'
+                    ], 422);
+                }
+            }
 
             // Si no tiene código, usar el existente
             $codigo = $request->prod_codigo ?: $producto->prod_codigo;
@@ -374,7 +420,6 @@ class ProductoController extends Controller
             'message' => 'Producto no encontrado'
         ]);
     }
-
     public function stockView()
     {
         $tipos = ProductoTipo::where('tprod_situacion', '1')

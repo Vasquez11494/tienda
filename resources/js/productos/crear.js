@@ -116,6 +116,7 @@ const processScannedCode = async (code) => {
             scannerStatus.textContent = "● No encontrado";
             scannerStatus.className = "text-sm font-semibold text-red-600";
 
+            // LLAMAR A LA NUEVA FUNCIÓN PARA PREGUNTAR SI CREAR
             await preguntarCrearProducto(normalizado);
         }
     } catch (error) {
@@ -179,7 +180,7 @@ const mostrarSugerenciasScanner = (productos) => {
     sugerenciasDiv.innerHTML = productos.map(p => `
         <div class="sugerencia-item px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 transition-colors" data-codigo="${p.prod_codigo}">
             <div class="flex items-center gap-3">
-                <img src="${p.prod_imagen ? `/storage/${p.prod_imagen}` : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"%3E%3Crect fill="%23e5e7eb" width="100%25" height="100%25"/%3E%3C/svg%3E'}" 
+                <img src="${p.prod_imagen ? `/storage/${p.prod_imagen}` : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"%3E%3Crect fill="%23e5e7eb" width="100%25" height="100%25"/%3E%3C/svg%3E'}"
                      class="w-10 h-10 object-cover rounded-lg border border-gray-200">
                 <div class="flex-1 min-w-0">
                     <p class="font-bold text-sm text-gray-800 truncate">${p.prod_nombre}</p>
@@ -236,14 +237,16 @@ const preguntarCrearProducto = async (codigo) => {
     });
 
     if (result.isConfirmed) {
+        // Abrir modal de crear con el código pre-cargado
         abrirModalCrearProducto(codigo);
     } else {
-        // Resetear scanner cuando cancela
+        // Si cancela, resetear scanner
         setTimeout(() => {
             resetearScanner();
         }, 100);
     }
 };
+
 
 // ========================= CARGA LISTA =========================
 const cargarProductos = async (categoriaId = "") => {
@@ -359,7 +362,7 @@ const crearCardProducto = (p) => {
                     <span class="stock-label">Stock:</span>
                     <span class="stock-value ${stockColor}">${stock} un.</span>
                 </div>
-                
+
                 <div class="card-price">Q${precio.toFixed(2)}</div>
 
                 <!-- Solo acciones (sin código de texto) -->
@@ -382,7 +385,7 @@ const crearCardProducto = (p) => {
                                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                 </svg>
                             </button>
-                            
+
                             <!-- Botón IMPRIMIR código de barras -->
                             <button type="button"
                                 class="btn-action"
@@ -397,7 +400,7 @@ const crearCardProducto = (p) => {
                                         d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                                 </svg>
                             </button>
-                            
+
                             <!-- Botón EDITAR producto -->
                             <button type="button"
                                 class="btn-action"
@@ -799,30 +802,133 @@ const guardarEdicionQuick = async (e) => {
 };
 
 // ========================= CREAR PRODUCTO =========================
-const abrirModalCrearProducto = (codigo) => {
+const abrirModalCrearProducto = (codigo = "") => {
     const form = document.getElementById("formCrearProducto");
-    form.reset();
+    form?.reset();
 
-    const hidden = document.getElementById("crear_prod_codigo");
-    const fila = document.getElementById("fila_codigo_creado");
-    const vis = document.getElementById("crear_prod_codigo_visible");
+    resetearOpcionesCodigo();
 
-    hidden.value = "";
-    fila?.classList.add("hidden");
     if (codigo) {
-        hidden.value = codigo;
-        if (vis && fila) {
-            vis.value = codigo;
-            fila.classList.remove("hidden");
-        }
+
+        document.getElementById('seccionOpcionesCodigo').classList.add('hidden');
+        document.getElementById('seccionFormularioProducto').classList.remove('hidden');
+        document.getElementById('crear_prod_codigo').value = codigo;
+
+        document.getElementById('textoCodigoAsignado').textContent = `Código escaneado: ${codigo}`;
+        document.getElementById('infoCodigoSeleccionado').classList.remove('hidden');
+    } else {
+        // Si no hay código escaneado, mostrar las 2 opciones disponibles
+        document.getElementById('seccionOpcionesCodigo').classList.remove('hidden');
     }
 
     document.getElementById("modalCrearProducto").classList.remove("hidden");
 };
 
+// ========================= GESTIÓN DE OPCIONES DE CÓDIGO =========================
+let opcionCodigoSeleccionada = null;
+let codigoAsignado = '';
+
+
+const configurarModalCreacion = () => {
+
+    // Opción 1: Generar automático
+    document.getElementById('btnGenerarAuto')?.addEventListener('click', () => {
+        seleccionarOpcionCodigo('auto', '');
+    });
+
+    // Opción 2: Ingresar manual
+    document.getElementById('btnIngresarManual')?.addEventListener('click', () => {
+        mostrarCampoManual();
+    });
+
+    document.getElementById('btnConfirmarManual')?.addEventListener('click', () => {
+        const codigoManual = document.getElementById('inputCodigoManual').value.trim();
+        if (codigoManual) {
+            seleccionarOpcionCodigo('manual', codigoManual);
+        } else {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Código vacío',
+                text: 'Por favor ingresa un código válido',
+                confirmButtonColor: '#2563eb'
+            });
+        }
+    });
+
+    document.getElementById('btnCambiarOpcion')?.addEventListener('click', () => {
+        resetearOpcionesCodigo();
+    });
+};
+
+const seleccionarOpcionCodigo = (opcion, codigo) => {
+    opcionCodigoSeleccionada = opcion;
+
+    switch (opcion) {
+        case 'escaner':
+            codigoAsignado = codigo;
+            mostrarInfoCodigo(`Código escaneado: ${codigo}`);
+            break;
+
+        case 'auto':
+            codigoAsignado = 'AUTO-GENERAR';
+            mostrarInfoCodigo('Se generará un código automáticamente');
+            break;
+
+        case 'manual':
+            codigoAsignado = codigo;
+            mostrarInfoCodigo(`Código manual: ${codigo}`);
+            break;
+    }
+
+    // OCULTAR OPCIONES después de seleccionar cualquier método
+    document.getElementById('seccionOpcionesCodigo').classList.add('hidden');
+    document.getElementById('campoCodigoManual').classList.add('hidden');
+    document.getElementById('seccionFormularioProducto').classList.remove('hidden');
+    document.getElementById('crear_prod_codigo').value = codigoAsignado;
+};
+
+const mostrarCampoManual = () => {
+    document.getElementById('campoCodigoManual').classList.remove('hidden');
+    document.getElementById('inputCodigoManual').focus();
+
+    document.getElementById('previewCodigoManual').textContent = '';
+};
+
+document.getElementById('inputCodigoManual')?.addEventListener('input', (e) => {
+    const codigo = e.target.value.trim();
+    document.getElementById('previewCodigoManual').textContent = codigo || '-';
+});
+
+const mostrarInfoCodigo = (mensaje) => {
+    document.getElementById('textoCodigoAsignado').textContent = mensaje;
+    document.getElementById('infoCodigoSeleccionado').classList.remove('hidden');
+};
+
+const resetearOpcionesCodigo = () => {
+    opcionCodigoSeleccionada = null;
+    codigoAsignado = '';
+
+    // SOLO mostrar opciones si no venimos del escáner
+    const codigoEscaneado = document.getElementById('scannerInput').value.trim();
+    if (!codigoEscaneado) {
+        document.getElementById('seccionOpcionesCodigo').classList.remove('hidden');
+    }
+
+    document.getElementById('seccionFormularioProducto').classList.add('hidden');
+    document.getElementById('infoCodigoSeleccionado').classList.add('hidden');
+    document.getElementById('campoCodigoManual').classList.add('hidden');
+    document.getElementById('inputCodigoManual').value = '';
+    document.getElementById('crear_prod_codigo').value = '';
+};
+
 const crearProductoNuevo = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+
+    // Si se seleccionó "generar automático", enviar campo vacío
+    if (opcionCodigoSeleccionada === 'auto') {
+        fd.set('prod_codigo', ''); // Enviar vacío para que el backend genere
+    }
 
     setBtnLoading(document.getElementById("btnCrearProducto"), true, "Creando...");
     Loader.show("Creando producto...");
@@ -856,7 +962,6 @@ const crearProductoNuevo = async (e) => {
             });
 
             closeModal("modalCrearProducto");
-            // ENFOQUE RÁPIDO DESPUÉS DE CREAR
             setTimeout(() => {
                 resetearScanner();
                 cargarProductos(categoriaActual);
@@ -872,7 +977,6 @@ const crearProductoNuevo = async (e) => {
         setBtnLoading(document.getElementById("btnCrearProducto"), false);
     }
 };
-
 // ========================= FUNCIONES GLOBALES =========================
 window.abrirModalStock = async (id) => {
     try {
@@ -921,7 +1025,7 @@ window.imprimirCodigoBarras = (codigo, nombre) => {
         window.onload = () => {
           setTimeout(() => window.print(), 500);
         };
-        
+
         window.onafterprint = () => {
           window.close();
         };
@@ -988,31 +1092,31 @@ window.mostrarModalBarcode = (codigo, nombre) => {
                     </svg>
                 </button>
             </div>
-            
+
             <!-- Contenido - Formato igual a la impresión -->
             <div class="p-6">
                 <div class="text-center">
                     <!-- Nombre del producto -->
                     <h4 class="text-lg font-bold text-gray-900 mb-3 leading-tight">${nombre || "Producto"}</h4>
-                    
+
                     <!-- Contenedor del código de barras (igual al de impresión) -->
                     <div class="bg-white p-4 border border-gray-300 rounded mb-4" id="barcode-container">
-                        <img src="/productos/barcode/${encodeURIComponent(codigo)}" 
-                             alt="Código de barras" 
+                        <img src="/productos/barcode/${encodeURIComponent(codigo)}"
+                             alt="Código de barras"
                              class="w-full h-auto mx-auto mb-2"
                              id="barcode-image"
                              onerror="this.style.display='none'; document.getElementById('errorBarcode').style.display='block';">
-                        
+
                         <div id="errorBarcode" style="display: none;" class="text-red-500 text-sm mb-2">
                             Error al cargar el código de barras
                         </div>
-                        
+
                         <!-- Código numérico centrado -->
                         <div class="font-mono text-xl font-bold text-gray-900 text-center tracking-wider mt-2">
                             ${codigo}
                         </div>
                     </div>
-                    
+
                     <!-- Botones de acción -->
                     <div class="flex flex-col space-y-3">
                         <button type="button" id="descargarBarcode" class="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center transition-colors">
@@ -1021,14 +1125,14 @@ window.mostrarModalBarcode = (codigo, nombre) => {
                             </svg>
                             Descargar Imagen
                         </button>
-                        
+
                         <button type="button" id="imprimirBarcode" class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center transition-colors">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                             </svg>
                             Imprimir
                         </button>
-                        
+
                         <button type="button" id="cerrarModal" class="w-full px-4 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
                             Cerrar
                         </button>
@@ -1080,8 +1184,8 @@ window.mostrarModalBarcode = (codigo, nombre) => {
                         <div style="font-size: 18px; font-weight: bold; color: #1f2937; line-height: 1.4;">${nombre || "Producto"}</div>
                     </div>
                     <div style="margin: 20px 0;">
-                        <img src="${barcodeImage.src}" 
-                             alt="Código de barras" 
+                        <img src="${barcodeImage.src}"
+                             alt="Código de barras"
                              style="width: 100%; height: auto; display: block; margin: 0 auto 10px;">
                         <div style="font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; color: #374151; margin-top: 10px; letter-spacing: 2px;">
                             ${codigo}
@@ -1176,8 +1280,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Cargar datos iniciales
     cargarProductos();
 
-    // Configurar scanner (¡ESTA ES LA CLAVE!)
     setupScanner();
+
+    configurarModalCreacion();
 
     // Event listeners básicos
     searchBox?.addEventListener("input", (e) => buscarProductos(e.target.value));
@@ -1244,3 +1349,4 @@ document.addEventListener("DOMContentLoaded", () => {
     // Exportar funciones globales
     window.resetearScanner = resetearScanner;
 });
+

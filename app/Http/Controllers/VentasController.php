@@ -102,11 +102,10 @@ class VentasController extends Controller
     public function procesarVenta(Request $request)
     {
         try {
-
             $request->validate([
                 'cambio' => 'required|numeric|min:0',
                 'efectivo' => 'required|numeric|min:0.01',
-                'nit' =>  'nullable|string|max:10',
+                'cliente' => 'nullable|string|max:200',
                 'total' => 'required|numeric|min:0.01',
                 'productos' => 'required|array|min:1',
                 'productos.*.cantidad' => 'required|integer|min:1',
@@ -133,7 +132,7 @@ class VentasController extends Controller
             $venta = Ventas::create([
                 'ven_fecha' => now()->toDateString(),
                 'ven_hora' => now()->toTimeString(),
-                'ven_cliente' =>  "CF",
+                'ven_cliente' => $request->cliente ?: 'Consumidor Final',
                 'ven_total' => $request->total,
                 'ven_efectivo' => $request->efectivo,
                 'ven_cambio' => $request->cambio,
@@ -145,8 +144,8 @@ class VentasController extends Controller
                 'motivo_anulacion' => null,
             ]);
 
+            // ... el resto del código permanece igual
             foreach ($request->productos as $productos) {
-
                 $subtotal = $productos['cantidad'] * $productos['precio'];
 
                 VentasDetalle::create([
@@ -175,7 +174,7 @@ class VentasController extends Controller
 
             DB::commit();
 
-            $ventaCompleta = Ventas::with(['detalles.producto'])->find($venta->ven_id);
+            $ventaCompleta = Ventas::with(['detalles.producto', 'usuario'])->find($venta->ven_id);
 
             return response()->json([
                 'codigo' => 1,
@@ -186,7 +185,6 @@ class VentasController extends Controller
                 ]
             ], 200);
         } catch (Exception $error) {
-
             DB::rollBack();
             return response()->json([
                 'codigo' => 0,

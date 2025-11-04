@@ -42,11 +42,15 @@ class Producto extends Model
     }
 
     // Generar código único si no tiene código de barras
+    // En el modelo Producto.php
     public static function generarCodigoUnico()
     {
         do {
             $codigo = 'PROD-' . strtoupper(substr(uniqid(), -8));
-        } while (self::where('prod_codigo', $codigo)->exists());
+        } while (self::where('prod_codigo', $codigo)
+            ->where('prod_situacion', 'Activo')
+            ->exists()
+        );
 
         return $codigo;
     }

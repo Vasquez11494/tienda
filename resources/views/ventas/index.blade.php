@@ -4,6 +4,17 @@
 
 @section('content')
 
+    <style>
+        .ticket-venta-popup {
+            max-width: 450px !important;
+        }
+
+        .ticket-venta-popup .swal2-html-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+
     @php
         $esAdmin = auth()->check() && auth()->user()->esAdmin();
     @endphp
@@ -262,17 +273,16 @@
             </div>
 
             <form id="formConfirmacionVenta" class="mt-4 space-y-4">
-
+                <!-- CAMPO DE CLIENTE (REEMPLAZA EL NIT) -->
                 <div>
-                    <label for="nit_cliente" class="block text-sm font-medium text-gray-700 mb-1">
-                        NIT (Cliente)
+                    <label for="nombre_cliente" class="block text-sm font-medium text-gray-700 mb-1">
+                        Cliente (Opcional)
                     </label>
-                    <input type="text" id="nit_cliente" name="nit_cliente"
-                        class="w-full rounded-lg border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed text-sm"
-                        placeholder="CF - Consumidor Final" disabled value="CF">
-                    <p class="text-xs text-gray-500 mt-1">Campo disponible para futura integración FEL</p>
+                    <input type="text" id="nombre_cliente" name="nombre_cliente"
+                        class="w-full rounded-lg border-gray-300 focus:border-emerald-400 focus:ring-emerald-400 text-sm"
+                        placeholder="Nombre del cliente" maxlength="100">
+                    <p class="text-xs text-gray-500 mt-1">Dejar vacío para "Consumidor Final"</p>
                 </div>
-
 
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <h4 class="font-medium text-gray-700 mb-3 text-center">Resumen de la Venta</h4>
